@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Launch the Vibe CLI with UNRESTRICTED network access (no proxy, no
+# allowlist). Same container, same project-only filesystem, full egress.
+# Usage: cd /path/to/project && vibe-open
+set -euo pipefail
+
+export PROJECT_DIR="$(pwd -P)"
+# readlink -f: resolve the wrapper's real location even when invoked through
+# a symlink (e.g. ~/.local/bin/vibe -> ~/vibe-docker/vibe). Without this,
+# compose hunts for its file next to the SYMLINK and dies with
+# "no configuration file provided: not found".
+COMPOSE_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+cd "$COMPOSE_DIR"
+
+# Same command-replacement note as ./vibe applies here.
+exec docker compose -f docker-compose.open.yml run --rm cli vibe "$@"

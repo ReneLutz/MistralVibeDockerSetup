@@ -1,0 +1,77 @@
+name: vibe
+
+services:
+  proxy:
+    build: ./proxy
+    # No restart policy: NOTHING starts automatically at WSL/Docker boot.
+    # The ./vibe wrapper starts this on demand and stops it again when
+    # the session ends.
+    # The ONLY container with internet access.
+    # squid.conf enforces: Mistral API + sign-in domains only, TLS only.
+    # Port 3128 is deliberately NOT published to the host or LAN.
+    networks:
+      - vibe-net
+      - egress
+    dns:
+      - 9.9.9.9
+      - 1.1.1.1
+      - 8.8.8.8
+    healthcheck:
+      # Squid takes 2-3 seconds to start up. This health check prevents
+      # race conditions where the CLI tries to connect before the proxy
+      # is ready to accept connections. Introduced due to squid's startup
+      # time causing connection errors on subsequent runs.
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/3128' || exit 1"]
+      interval: 2s
+      timeout: 2s
+      retries: 15
+      start_period: 2s
+
+  cli:
+    build:
+      context: ./cli
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        VIBE_VERSION: ${VIBE_VERSION:-}
+    depends_on:
+      proxy:
+        condition: service_healthy
+    working_dir: /workspace
+    environment:
+      HTTPS_PROXY: http://proxy:3128
+      HTTP_PROXY: http://proxy:3128
+      NO_PROXY: "localhost,127.0.0.1,proxy,.vibe-net"
+      # Empty -> browser OAuth mode; set in .env -> API-key mode.
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # Container has no browser. Without this, the CLI aborts the sign-in
+      # flow when it can't launch one, instead of showing the URL and
+      # polling for completion (bug #941). `true` = the no-op command,
+      # so webbrowser.open() "succeeds" and polling starts; you then
+      # copy the URL (press c) and authorize in your Windows browser.
+      BROWSER: "true"
+    volumes:
+      # The ONLY project exposure: the directory you launch from.
+      # Default = empty ./placeholder, so a bare `docker compose up/run`
+      # (wrapper bypassed) sees an empty workspace instead of a host dir.
+      # The wrapper always exports PROJECT_DIR, which overrides this default.
+      - ${PROJECT_DIR:-./placeholder}:/workspace
+      # Persistent $HOME: config, sessions, git identity survive rebuilds.
+      - ./home:/home/vibe
+    networks:
+      - vibe-net        # internal: true -> no direct internet, ever
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stdin_open: true
+    tty: true
+    command: ["vibe"]
+
+networks:
+  vibe-net:
+    internal: true
+  egress: {}

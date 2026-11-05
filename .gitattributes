@@ -1,0 +1,7 @@
+# This repository is intended for a WSL environment.
+# Text files, shell scripts and vibe executables must use LF line endings
+# because CRLF can cause syntax errors or unexpected behavior on execution
+* text=auto eol=lf
+*.sh eol=lf
+vibe eol=lf
+vibe-open eol=lf

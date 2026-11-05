@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Launch the sandboxed Vibe CLI against the current directory.
+# Usage: cd /path/to/project && vibe          (interactive)
+#        vibe --prompt "fix the failing test" (programmatic)
+set -euo pipefail
+
+export PROJECT_DIR="$(pwd -P)"
+# readlink -f: resolve the wrapper's real location even when invoked through
+# a symlink (e.g. ~/.local/bin/vibe -> ~/vibe-docker/vibe). Without this,
+# compose hunts for its file next to the SYMLINK and dies with
+# "no configuration file provided: not found".
+COMPOSE_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+cd "$COMPOSE_DIR"
+
+# On-demand only: proxy comes up for this session and stops again
+# when it ends. Nothing lingers in the background.
+docker compose up -d proxy
+trap 'docker compose stop proxy' EXIT
+# Note: `compose run` REPLACES the service command, so we re-state `vibe`
+# and append the args - otherwise `vibe --prompt ...` would break.
+docker compose run --rm cli vibe "$@"

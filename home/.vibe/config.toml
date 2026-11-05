@@ -1,0 +1,16 @@
+# Hardened defaults for the sandboxed Vibe CLI.
+# Keys per https://docs.mistral.ai/vibe/code/cli/configuration-reference
+
+# Air gap: no update checks, no telemetry. Updates happen via image rebuild.
+enable_update_checks = false
+enable_telemetry = false
+
+# The container is the real sandbox, but refuse outside-workdir calls anyway.
+outside_workdir = "deny"
+
+# Belt & braces: disable built-in web tools. The proxy blocks them regardless.
+disabled_tools = ["web_fetch", "web_search"]
+
+[[connectors]]
+name = "web_search"
+disabled = true

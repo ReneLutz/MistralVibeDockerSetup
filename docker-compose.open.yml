@@ -1,0 +1,37 @@
+# Profile 2 - "open": identical container and filesystem sandbox, but NO
+# egress proxy and NO allowlist. The CLI has normal internet access
+# (pip install, docs, git remotes...). Only the working-directory mount,
+# read-only rootfs and capability drop stay in place.
+name: vibe-open
+
+services:
+  cli:
+    build:
+      context: ./cli
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+        VIBE_VERSION: ${VIBE_VERSION:-}
+    working_dir: /workspace
+    environment:
+      # Empty -> browser OAuth mode; set in .env -> API-key mode.
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # Still a headless container: bug #941 workaround still applies.
+      BROWSER: "true"
+    volumes:
+      # The ONLY project exposure: the directory you launch from.
+      # Default = empty ./placeholder (same rationale as the restricted profile).
+      - ${PROJECT_DIR:-./placeholder}:/workspace
+      # Same persistent $HOME as the restricted profile (shared config).
+      - ./home:/home/vibe
+    # No custom networks: default bridge with normal internet access.
+    read_only: true
+    tmpfs:
+      - /tmp:size=1g
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    stdin_open: true
+    tty: true
+    command: ["vibe"]
